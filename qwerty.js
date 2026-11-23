@@ -4,9 +4,14 @@
   const SIDE = ["Backspace", "Numbers and symbols", "Change language"];
   const NAMES = { "'": "Single Quote", "-": "Dash" };
   const LETTERS = [..."abcdefghijklmnopqrstuvwxyz"];
+  const SIDE_COLUMN = 10;
 
-  const label = container => {
-    const key = container.querySelector("yt-keyboard-key");
+  const layout = [];
+  ROWS.forEach((row, r) => [...row].forEach((ch, c) => layout.push({ name: NAMES[ch] || ch, col: c, row: r })));
+  SIDE.forEach((name, r) => layout.push({ name, col: SIDE_COLUMN, row: r }));
+
+  const label = el => {
+    const key = el.tagName === "YT-KEYBOARD-KEY" ? el : el.querySelector("yt-keyboard-key");
     return key ? key.getAttribute("aria-label") : null;
   };
 
@@ -15,32 +20,91 @@
     if (el.style.transform !== value) el.style.transform = value;
   };
 
+  let state = null;
+
   const arrange = keyboard => {
     const grid = keyboard.querySelector("yt-keyboard-key-grid");
     const list = keyboard.querySelector("yt-keyboard-key-list");
-    if (!grid) return;
+    if (!grid) return (state = null);
 
     const containers = [...grid.querySelectorAll("yt-keyboard-key-container")];
     const byLabel = new Map(containers.map(c => [label(c), c]));
-    const isLetters = LETTERS.every(letter => byLabel.has(letter));
 
-    if (!isLetters) {
+    if (!LETTERS.every(letter => byLabel.has(letter))) {
       containers.forEach(c => move(c, 0, 0));
       if (list) move(list, 0, 0);
-      return;
+      return (state = null);
     }
 
     const originX = Math.min(...containers.map(c => c.offsetLeft));
     const originY = Math.min(...containers.map(c => c.offsetTop));
-    const place = (container, column, row) => {
-      if (!container) return;
-      move(container, originX + column * KEY - container.offsetLeft, originY + row * KEY - container.offsetTop);
-    };
-
-    ROWS.forEach((row, r) => [...row].forEach((ch, c) => place(byLabel.get(NAMES[ch] || ch), c, r)));
-    SIDE.forEach((name, r) => place(byLabel.get(name), 10, r));
+    layout.forEach(({ name, col, row }) => {
+      const container = byLabel.get(name);
+      if (container) move(container, originX + col * KEY - container.offsetLeft, originY + row * KEY - container.offsetTop);
+    });
     if (list) move(list, 0, -KEY);
+
+    state = { byLabel, bottom: list ? [...list.querySelectorAll("yt-keyboard-key")] : [] };
   };
+
+  const cellOf = name => layout.find(cell => cell.name === name);
+
+  const keyAt = (col, row) => {
+    const rowCells = layout.filter(cell => cell.row === row);
+    const exact = rowCells.find(cell => cell.col === col);
+    if (exact) return exact;
+    if (col === SIDE_COLUMN) return null;
+    return rowCells.filter(cell => cell.col < SIDE_COLUMN).pop();
+  };
+
+  const focusKey = name => {
+    const container = state.byLabel.get(name);
+    const key = container && container.querySelector("yt-keyboard-key");
+    if (key) key.focus();
+    return !!key;
+  };
+
+  const target = (current, direction) => {
+    const bottomIndex = state.bottom.indexOf(current);
+    if (bottomIndex !== -1) {
+      if (direction !== "ArrowUp") return null;
+      return { key: keyAt([1, 4, 6][bottomIndex] ?? 6, ROWS.length - 1).name };
+    }
+
+    const cell = cellOf(label(current));
+    if (!cell) return null;
+    const lastRow = ROWS.length - 1;
+
+    if (direction === "ArrowLeft") {
+      if (cell.col === SIDE_COLUMN) return { key: keyAt(ROWS[cell.row].length - 1, cell.row).name };
+      return cell.col === 0 ? null : { key: keyAt(cell.col - 1, cell.row).name };
+    }
+    if (direction === "ArrowRight") {
+      if (cell.col === SIDE_COLUMN) return null;
+      const next = layout.find(c => c.row === cell.row && c.col === cell.col + 1);
+      return { key: (next || keyAt(SIDE_COLUMN, cell.row)).name };
+    }
+    if (direction === "ArrowUp") return cell.row === 0 ? null : { key: keyAt(cell.col, cell.row - 1).name };
+    if (direction === "ArrowDown") {
+      if (cell.row === lastRow) return { bottom: cell.col <= 2 ? 0 : cell.col <= 5 ? 1 : 2 };
+      const below = keyAt(cell.col, cell.row + 1);
+      return below ? { key: below.name } : null;
+    }
+    return null;
+  };
+
+  document.addEventListener("keydown", event => {
+    if (!state || !event.key.startsWith("Arrow")) return;
+    const current = document.activeElement;
+    if (!current || current.tagName !== "YT-KEYBOARD-KEY") return;
+    const next = target(current, event.key);
+    if (!next) return;
+    const moved = next.bottom !== undefined ? (state.bottom[next.bottom] && (state.bottom[next.bottom].focus(), true)) : focusKey(next.key);
+    if (moved) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }, true);
 
   const badge = document.createElement("div");
   badge.style.cssText = "position:fixed;right:20px;bottom:20px;background:#06c;color:#fff;font:28px sans-serif;padding:8px 14px;z-index:2147483647";
@@ -49,7 +113,9 @@
   setInterval(() => {
     const keyboard = document.querySelector("ytlr-search-keyboard");
     if (keyboard) arrange(keyboard);
-    const active = document.querySelector("yt-keyboard-key.zylon-focus, yt-keyboard-key:focus");
-    badge.textContent = `focus: ${active ? active.getAttribute("aria-label") : "-"}`;
+    const active = document.activeElement;
+    const zylon = document.querySelector("yt-keyboard-key.zylon-focus");
+    const box = document.querySelector("ytlr-search-text-box");
+    badge.textContent = `dom: ${active && label(active)} | zylon: ${zylon && label(zylon)} | text: ${box && box.textContent.trim()}`;
   }, 300);
 })();
