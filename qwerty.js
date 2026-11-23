@@ -148,9 +148,7 @@
         "keyboard props: " + Object.keys(kb.__instance || {}).join(","),
         "box inst: " + methods(box.__instance).join(","),
         "box props: " + Object.keys(box.__instance || {}).join(","),
-      ].join("
-
-");
+      ].join("\n\n");
       event.stopImmediatePropagation();
     }
   }, true);
