@@ -65,7 +65,12 @@
     button.setAttribute("role", "button");
     button.setAttribute("aria-label", name === "left" ? "Move cursor left" : "Move cursor right");
     button.style.cssText = "position:absolute;width:54px;height:54px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#aaa;outline:none";
-    button.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24"><path d="${points}" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    Object.entries({ width: 28, height: 28, viewBox: "0 0 24 24" }).forEach(([k, v]) => svg.setAttribute(k, v));
+    Object.entries({ d: points, fill: "none", stroke: "currentColor", "stroke-width": 2.5, "stroke-linecap": "round", "stroke-linejoin": "round" }).forEach(([k, v]) => path.setAttribute(k, v));
+    svg.appendChild(path);
+    button.appendChild(svg);
     button.addEventListener("focus", () => {
       button.style.background = "#f1f1f1";
       button.style.color = "#0f0f0f";
