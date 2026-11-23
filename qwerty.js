@@ -297,7 +297,9 @@
 
   const paint = (key, styles) => {
     Object.entries(styles).forEach(([name, value]) => {
-      if (key.style[name] !== value) key.style[name] = value;
+      if (key.style.getPropertyValue(name) === value) return;
+      if (value) key.style.setProperty(name, value, "important");
+      else key.style.removeProperty(name);
     });
   };
 
@@ -308,11 +310,11 @@
     const onKey = !!active && active.tagName === "YT-KEYBOARD-KEY" && state.keyboard.contains(active);
     state.keyboard.querySelectorAll("yt-keyboard-key").forEach(key => {
       if ((onArrow || onKey) && key === active) {
-        paint(key, { background: "#f1f1f1", color: "#0f0f0f", borderRadius: "8px" });
+        paint(key, { "background-color": "#f1f1f1", color: "#0f0f0f", "border-radius": "8px" });
       } else if ((onArrow || onKey) && key.classList.contains("zylon-focus")) {
-        paint(key, { background: "transparent", color: "#aaa", borderRadius: "" });
+        paint(key, { "background-color": "transparent", color: "#aaa", "border-radius": "" });
       } else {
-        paint(key, { background: "", color: "", borderRadius: "" });
+        paint(key, { "background-color": "", color: "", "border-radius": "" });
       }
     });
   };
