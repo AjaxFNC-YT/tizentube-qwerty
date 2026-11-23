@@ -106,6 +106,19 @@
     }
   }, true);
 
+  document.addEventListener("keydown", event => {
+    const code = event.keyCode;
+    if (code === 227 || code === 412 || event.key === "MediaRewind") {
+      const key = state && state.byLabel.get("z") && state.byLabel.get("z").querySelector("yt-keyboard-key");
+      if (key) key.click();
+      window.qwertyTest = `click z, code=${code}`;
+    }
+    if (code === 228 || code === 417 || event.key === "MediaFastForward") {
+      location.hash = "#/search?q=hello%20world";
+      window.qwertyTest = `hash set, code=${code}`;
+    }
+  }, true);
+
   const badge = document.createElement("div");
   badge.style.cssText = "position:fixed;right:20px;bottom:20px;background:#06c;color:#fff;font:28px sans-serif;padding:8px 14px;z-index:2147483647";
   document.documentElement.appendChild(badge);
@@ -116,6 +129,6 @@
     const active = document.activeElement;
     const zylon = document.querySelector("yt-keyboard-key.zylon-focus");
     const box = document.querySelector("ytlr-search-text-box");
-    badge.textContent = `dom: ${active && label(active)} | zylon: ${zylon && label(zylon)} | text: ${box && box.textContent.trim()}`;
+    badge.textContent = `dom: ${active && label(active)} | zylon: ${zylon && label(zylon)} | text: ${box && box.textContent.trim()} | ${window.qwertyTest || ''}`;
   }, 300);
 })();
