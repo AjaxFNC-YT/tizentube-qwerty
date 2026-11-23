@@ -184,16 +184,6 @@
     target.dispatchEvent(event);
   };
 
-  const press = async key => {
-    key.focus();
-    for (let i = 0; i < 20 && !key.classList.contains("zylon-focus"); i++) await wait(15);
-    await wait(30);
-    fakeKey(key, "keydown", 13, "Enter");
-    fakeKey(key, "keyup", 13, "Enter");
-    await wait(60);
-    log(`press ${labelOf(key)} zylon=${key.classList.contains("zylon-focus")} -> "${currentText()}"`);
-  };
-
   const refresh = () => {
     const keyboard = document.querySelector("ytlr-search-keyboard");
     if (keyboard) arrange(keyboard);
@@ -208,34 +198,48 @@
     return null;
   };
 
+  const findLabel = label => {
+    const container = state.byLabel.get(label);
+    return container ? keyOf(container) : null;
+  };
+
+  const press = async locate => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      refresh();
+      const key = locate();
+      if (!key) return false;
+      key.focus();
+      for (let i = 0; i < 20 && !key.classList.contains("zylon-focus"); i++) await wait(15);
+      if (!key.isConnected || !key.classList.contains("zylon-focus")) continue;
+      await wait(20);
+      fakeKey(key, "keydown", 13, "Enter");
+      fakeKey(key, "keyup", 13, "Enter");
+      await wait(80);
+      log(`press ${labelOf(key)} -> "${currentText()}"`);
+      return true;
+    }
+    log("press failed");
+    return false;
+  };
+
   const switchLayout = async () => {
-    const toggle = LAYOUT_KEYS.map(name => state.byLabel.get(name)).find(Boolean);
-    if (!toggle) return false;
-    await press(keyOf(toggle));
+    const toggle = LAYOUT_KEYS.find(name => state.byLabel.has(name));
+    if (!toggle || !(await press(() => findLabel(toggle)))) return false;
     await wait(250);
     refresh();
     return true;
   };
 
   const typeChar = async ch => {
-    let key = findKey(ch);
-    if (!key) {
-      if (!(await switchLayout())) return false;
-      key = findKey(ch);
-    }
-    if (!key) return false;
-    await press(key);
-    return true;
+    refresh();
+    if (!findKey(ch) && !(await switchLayout())) return false;
+    return press(() => findKey(ch));
   };
 
   const typable = text => [...text].every(ch => /[a-z0-9 &#()@!?:.\-_"\/$%+\[\]']/.test(ch));
 
   const backspaces = async count => {
-    for (let i = 0; i < count; i++) {
-      const container = state.byLabel.get("Backspace");
-      if (!container) return false;
-      await press(keyOf(container));
-    }
+    for (let i = 0; i < count; i++) if (!(await press(() => findLabel("Backspace")))) return false;
     return true;
   };
 
