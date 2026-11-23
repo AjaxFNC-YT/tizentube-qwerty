@@ -212,7 +212,7 @@
     }
     const before = currentText();
     try {
-      key.__instance.onSelect();
+      key.__instance.onSelect({ type: "click", target: key, currentTarget: key, stopPropagation() {}, preventDefault() {} });
     } catch (e) {
       log(`onSelect error ${e.message}`);
       return false;
