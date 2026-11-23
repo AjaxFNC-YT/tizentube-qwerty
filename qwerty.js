@@ -254,12 +254,17 @@
       cursor = done ? head.length : currentText().length;
       lastText = currentText();
     } finally {
-      await wait(150);
-      refresh();
-      const back = [...state.byLabel.values()].map(keyOf).concat(state.bottom).find(key => key && labelOf(key) === label);
-      (back || origin).focus();
-      syncHighlight();
-      await wait(50);
+      const restore = () => {
+        refresh();
+        const back = [...state.byLabel.values()].map(keyOf).concat(state.bottom).find(key => key && labelOf(key) === label);
+        const target = back || origin;
+        if (document.activeElement !== target) target.focus();
+        syncHighlight();
+      };
+      for (const delay of [150, 200, 300]) {
+        await wait(delay);
+        restore();
+      }
       busy = false;
     }
     return true;
