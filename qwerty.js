@@ -1,5 +1,8 @@
 (() => {
-  console.warn("[qwerty] addon running");
+  const badge = document.createElement("div");
+  badge.textContent = "QWERTY ADDON " + location.hash;
+  badge.style.cssText = "position:fixed;right:20px;bottom:20px;background:#e00;color:#fff;font:28px sans-serif;padding:10px;z-index:2147483647";
+  document.documentElement.appendChild(badge);
   const panel = document.createElement("pre");
   panel.style.cssText = "position:fixed;left:0;top:0;width:1920px;height:1080px;margin:0;padding:8px;background:rgba(0,0,0,.92);color:#0f0;font:13px/15px monospace;z-index:2147483647;overflow:hidden;white-space:pre-wrap;pointer-events:none;display:none";
   document.documentElement.appendChild(panel);
