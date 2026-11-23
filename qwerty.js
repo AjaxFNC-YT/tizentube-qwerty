@@ -22,10 +22,6 @@
   const arrows = {};
 
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-  const debug = document.createElement("pre");
-  debug.style.cssText = "position:fixed;left:20px;top:560px;width:1200px;margin:0;background:rgba(0,0,0,.85);color:#0f0;font:20px/24px monospace;z-index:2147483647;pointer-events:none;white-space:pre-wrap";
-  document.documentElement.appendChild(debug);
-  const log = line => { debug.textContent = (debug.textContent + line + String.fromCharCode(10)).split(String.fromCharCode(10)).slice(-18).join(String.fromCharCode(10)); };
 
   const keyOf = el => (el.tagName === "YT-KEYBOARD-KEY" ? el : el.querySelector("yt-keyboard-key"));
   const labelOf = el => {
@@ -215,7 +211,6 @@
     }
     for (let i = 0; i < 30 && changesText && currentText() === before; i++) await wait(20);
     await wait(changesText ? 30 : 250);
-    log(`select ${labelOf(key)}: "${before}" -> "${currentText()}"`);
     return true;
   };
 
@@ -252,7 +247,6 @@
       cursor = text.length;
       return false;
     }
-    log(`edit "${text}" -> "${head + tail}"`);
     const label = labelOf(origin);
     const wasLetters = !!state.items;
     busy = true;
@@ -262,10 +256,12 @@
       cursor = done ? head.length : currentText().length;
       lastText = currentText();
     } finally {
-      busy = false;
+      await wait(150);
       refresh();
       const back = [...state.byLabel.values()].map(keyOf).concat(state.bottom).find(key => key && labelOf(key) === label);
       (back || origin).focus();
+      await wait(50);
+      busy = false;
     }
     return true;
   };
