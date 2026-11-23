@@ -136,19 +136,18 @@
       event.stopImmediatePropagation();
     }
     if (code === 228 || code === 417) {
-      const key = state.byLabel.get("z").querySelector("yt-keyboard-key");
-      const inst = key.__instance;
-      const box = document.querySelector("ytlr-search-text-box");
       const kb = document.querySelector("ytlr-search-keyboard");
-      panel.textContent = [
-        "key inst: " + methods(inst).join(","),
-        "key props: " + Object.keys(inst || {}).join(","),
-        "container inst: " + methods(key.parentElement.__instance).join(","),
-        "keyboard inst: " + methods(kb.__instance).join(","),
-        "keyboard props: " + Object.keys(kb.__instance || {}).join(","),
-        "box inst: " + methods(box.__instance).join(","),
-        "box props: " + Object.keys(box.__instance || {}).join(","),
-      ].join("\n\n");
+      const labels = () => [...kb.querySelectorAll("yt-keyboard-key")].map(k => `${k.getAttribute("aria-label")}|${k.textContent.trim()}`).join("  ");
+      const before = labels();
+      const num = state.byLabel.get("Numbers and symbols").querySelector("yt-keyboard-key");
+      num.focus();
+      setTimeout(() => {
+        fakeKey(num, "keydown", 13, "Enter");
+        fakeKey(num, "keyup", 13, "Enter");
+        setTimeout(() => {
+          panel.textContent = ["LETTERS:", before, "SYMBOLS:", labels(), "active: " + (document.activeElement && document.activeElement.getAttribute("aria-label"))].join(String.fromCharCode(10, 10));
+        }, 800);
+      }, 100);
       event.stopImmediatePropagation();
     }
   }, true);
