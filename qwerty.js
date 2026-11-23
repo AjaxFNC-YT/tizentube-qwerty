@@ -182,7 +182,8 @@
 
   const press = async key => {
     key.focus();
-    await wait(40);
+    for (let i = 0; i < 20 && !key.classList.contains("zylon-focus"); i++) await wait(15);
+    await wait(30);
     fakeKey(key, "keydown", 13, "Enter");
     fakeKey(key, "keyup", 13, "Enter");
     await wait(60);
