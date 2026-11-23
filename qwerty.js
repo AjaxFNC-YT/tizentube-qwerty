@@ -1,4 +1,5 @@
 (() => {
+  console.warn("[qwerty] addon running");
   const panel = document.createElement("pre");
   panel.style.cssText = "position:fixed;left:0;top:0;width:1920px;height:1080px;margin:0;padding:8px;background:rgba(0,0,0,.92);color:#0f0;font:13px/15px monospace;z-index:2147483647;overflow:hidden;white-space:pre-wrap;pointer-events:none;display:none";
   document.documentElement.appendChild(panel);
