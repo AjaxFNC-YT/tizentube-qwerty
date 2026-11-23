@@ -29,7 +29,6 @@
     }
   };
 
-  report(`loader tt=${!!window.trustedTypes}`);
   load(upstream, Date.now());
   load(addon, Math.floor(Date.now() / 600000));
 })();
