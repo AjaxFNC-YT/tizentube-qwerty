@@ -30,5 +30,5 @@
   };
 
   load(upstream, Date.now());
-  load(addon, Math.floor(Date.now() / 600000));
+  load(addon, Date.now());
 })();
