@@ -1,48 +1,55 @@
 (() => {
-  const panel = document.createElement("pre");
-  panel.style.cssText = "position:fixed;left:0;top:0;width:1920px;height:1080px;margin:0;padding:8px;background:rgba(0,0,0,.92);color:#0f0;font:13px/15px monospace;z-index:2147483647;overflow:hidden;white-space:pre-wrap;pointer-events:none;display:none";
-  document.documentElement.appendChild(panel);
+  const KEY = 66;
+  const ROWS = ["qwertyuiop", "asdfghjkl'", "zxcvbnm-"];
+  const SIDE = ["Backspace", "Numbers and symbols", "Change language"];
+  const NAMES = { "'": "Single Quote", "-": "Dash" };
+  const LETTERS = [..."abcdefghijklmnopqrstuvwxyz"];
 
-  const keys = [];
-  document.addEventListener("keydown", e => {
-    keys.push(`${e.key}`);
-    if (keys.length > 10) keys.shift();
-  }, true);
-
-  const style = el => {
-    const s = getComputedStyle(el);
-    const r = el.getBoundingClientRect();
-    return `disp=${s.display} pos=${s.position} flexdir=${s.flexDirection} wrap=${s.flexWrap} gtc=${s.gridTemplateColumns} rect=${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}x${Math.round(r.height)} tf=${s.transform}`;
+  const label = container => {
+    const key = container.querySelector("yt-keyboard-key");
+    return key ? key.getAttribute("aria-label") : null;
   };
 
-  const describe = (el, depth, out) => {
-    if (out.length > 60 || depth > 6 || el.tagName === "YT-KEYBOARD-KEY") return;
-    out.push(`${"  ".repeat(depth)}${el.tagName.toLowerCase()} kids=${el.children.length} ${style(el)}`);
-    [...el.children].forEach(child => describe(child, depth + 1, out));
+  const move = (el, dx, dy) => {
+    const value = dx || dy ? `translate(${dx}px, ${dy}px)` : "";
+    if (el.style.transform !== value) el.style.transform = value;
   };
+
+  const arrange = keyboard => {
+    const grid = keyboard.querySelector("yt-keyboard-key-grid");
+    const list = keyboard.querySelector("yt-keyboard-key-list");
+    if (!grid) return;
+
+    const containers = [...grid.querySelectorAll("yt-keyboard-key-container")];
+    const byLabel = new Map(containers.map(c => [label(c), c]));
+    const isLetters = LETTERS.every(letter => byLabel.has(letter));
+
+    if (!isLetters) {
+      containers.forEach(c => move(c, 0, 0));
+      if (list) move(list, 0, 0);
+      return;
+    }
+
+    const originX = Math.min(...containers.map(c => c.offsetLeft));
+    const originY = Math.min(...containers.map(c => c.offsetTop));
+    const place = (container, column, row) => {
+      if (!container) return;
+      move(container, originX + column * KEY - container.offsetLeft, originY + row * KEY - container.offsetTop);
+    };
+
+    ROWS.forEach((row, r) => [...row].forEach((ch, c) => place(byLabel.get(NAMES[ch] || ch), c, r)));
+    SIDE.forEach((name, r) => place(byLabel.get(name), 10, r));
+    if (list) move(list, 0, -KEY);
+  };
+
+  const badge = document.createElement("div");
+  badge.style.cssText = "position:fixed;right:20px;bottom:20px;background:#06c;color:#fff;font:28px sans-serif;padding:8px 14px;z-index:2147483647";
+  document.documentElement.appendChild(badge);
 
   setInterval(() => {
     const keyboard = document.querySelector("ytlr-search-keyboard");
-    if (!keyboard) {
-      panel.style.display = "none";
-      return;
-    }
-    const out = [`keys=${keys.join(" ")}`, `active=${document.activeElement && document.activeElement.outerHTML.slice(0, 160)}`];
-    describe(keyboard, 0, out);
-    const all = [...keyboard.querySelectorAll("yt-keyboard-key")];
-    out.push(`total keys=${all.length}`);
-    out.push(all.map(k => {
-      const r = k.getBoundingClientRect();
-      return `${k.getAttribute("aria-label")}@${Math.round(r.left)},${Math.round(r.top)}`;
-    }).join("  "));
-    const first = all[0];
-    if (first) {
-      out.push(`key parent chain: ${[first.parentElement, first.parentElement.parentElement].map(p => p.tagName.toLowerCase() + " kids=" + p.children.length).join(" < ")}`);
-      out.push(`key html: ${first.outerHTML.slice(0, 400)}`);
-      out.push(`key style: ${style(first)}`);
-    }
-    out.push(`props: ${Object.keys(first || {}).slice(0, 20).join(",")}`);
-    panel.textContent = out.join("\n");
-    panel.style.display = "block";
-  }, 2000);
+    if (keyboard) arrange(keyboard);
+    const active = document.querySelector("yt-keyboard-key.zylon-focus, yt-keyboard-key:focus");
+    badge.textContent = `focus: ${active ? active.getAttribute("aria-label") : "-"}`;
+  }, 300);
 })();
