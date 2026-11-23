@@ -19,15 +19,16 @@
   }, true);
 
   setInterval(() => {
-    const keyboard = document.querySelector("ytlr-search-keyboard, ytlr-keyboard, [class*=keyboard]");
-    if (!location.hash.includes("search") || !keyboard) {
-      panel.style.display = "none";
-      return;
-    }
-    let root = keyboard;
-    for (let i = 0; i < 2 && root.parentElement; i++) root = root.parentElement;
-    const out = [`hash=${location.hash}  keys=${keys.join(" ")}`, `active=${document.activeElement && document.activeElement.outerHTML.slice(0, 200)}`];
-    describe(root, 0, out);
+    const tags = new Set();
+    document.querySelectorAll("*").forEach(el => {
+      const t = el.tagName.toLowerCase();
+      if (/search|key/.test(t) || (typeof el.className === "string" && /keyboard/i.test(el.className))) tags.add(t + (typeof el.className === "string" ? "." + el.className.split(" ")[0] : ""));
+    });
+    const keyEl = [...document.querySelectorAll("*")].find(el => el.children.length === 0 && el.textContent.trim() === "SPACE");
+    let root = keyEl;
+    for (let i = 0; i < 6 && root && root.parentElement; i++) root = root.parentElement;
+    const out = [`TT=${typeof window.tizentube !== "undefined" || !!document.querySelector("[id^=tt-]")} hash=${location.hash}  keys=${keys.join(" ")}`, `tags=${[...tags].join(" ")}`, `active=${document.activeElement && document.activeElement.outerHTML.slice(0, 200)}`];
+    if (root) describe(root, 0, out);
     panel.textContent = out.join("\n");
     panel.style.display = "block";
   }, 3000);
