@@ -22,6 +22,10 @@
   const arrows = {};
 
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const debug = document.createElement("pre");
+  debug.style.cssText = "position:fixed;left:20px;top:560px;width:1200px;margin:0;background:rgba(0,0,0,.85);color:#0f0;font:20px/24px monospace;z-index:2147483647;pointer-events:none;white-space:pre-wrap";
+  document.documentElement.appendChild(debug);
+  const log = line => { debug.textContent = (debug.textContent + line + String.fromCharCode(10)).split(String.fromCharCode(10)).slice(-18).join(String.fromCharCode(10)); };
 
   const keyOf = el => (el.tagName === "YT-KEYBOARD-KEY" ? el : el.querySelector("yt-keyboard-key"));
   const labelOf = el => {
@@ -187,6 +191,7 @@
     fakeKey(key, "keydown", 13, "Enter");
     fakeKey(key, "keyup", 13, "Enter");
     await wait(60);
+    log(`press ${labelOf(key)} zylon=${key.classList.contains("zylon-focus")} -> "${currentText()}"`);
   };
 
   const refresh = () => {
@@ -241,6 +246,7 @@
       cursor = text.length;
       return false;
     }
+    log(`edit insert=${JSON.stringify(insert)} cursor=${cursor} text="${text}" tail="${tail}"`);
     const label = labelOf(origin);
     const wasLetters = !!state.items;
     busy = true;
