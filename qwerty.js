@@ -106,16 +106,52 @@
     }
   }, true);
 
+  const methods = obj => {
+    const names = new Set();
+    for (let o = obj; o && o !== Object.prototype; o = Object.getPrototypeOf(o)) Object.getOwnPropertyNames(o).forEach(n => names.add(n));
+    return [...names];
+  };
+
+  const panel = document.createElement("pre");
+  panel.style.cssText = "position:fixed;left:0;top:450px;width:1900px;height:540px;margin:0;padding:8px;background:rgba(0,0,0,.92);color:#0f0;font:14px/16px monospace;z-index:2147483646;overflow:hidden;white-space:pre-wrap;pointer-events:none";
+  document.documentElement.appendChild(panel);
+
+  const fakeKey = (target, type, keyCode, key) => {
+    const event = new KeyboardEvent(type, { key, code: key, bubbles: true, cancelable: true });
+    Object.defineProperty(event, "keyCode", { get: () => keyCode });
+    Object.defineProperty(event, "which", { get: () => keyCode });
+    target.dispatchEvent(event);
+  };
+
   document.addEventListener("keydown", event => {
     const code = event.keyCode;
-    if (code === 227 || code === 412 || event.key === "MediaRewind") {
-      const key = state && state.byLabel.get("z") && state.byLabel.get("z").querySelector("yt-keyboard-key");
-      if (key) key.click();
-      window.qwertyTest = `click z, code=${code}`;
+    if (code === 227 || code === 412) {
+      const key = state.byLabel.get("z").querySelector("yt-keyboard-key");
+      key.focus();
+      setTimeout(() => {
+        fakeKey(key, "keydown", 13, "Enter");
+        fakeKey(key, "keyup", 13, "Enter");
+        window.qwertyTest = "fake enter on z";
+      }, 100);
+      event.stopImmediatePropagation();
     }
-    if (code === 228 || code === 417 || event.key === "MediaFastForward") {
-      location.hash = "#/search?q=hello%20world";
-      window.qwertyTest = `hash set, code=${code}`;
+    if (code === 228 || code === 417) {
+      const key = state.byLabel.get("z").querySelector("yt-keyboard-key");
+      const inst = key.__instance;
+      const box = document.querySelector("ytlr-search-text-box");
+      const kb = document.querySelector("ytlr-search-keyboard");
+      panel.textContent = [
+        "key inst: " + methods(inst).join(","),
+        "key props: " + Object.keys(inst || {}).join(","),
+        "container inst: " + methods(key.parentElement.__instance).join(","),
+        "keyboard inst: " + methods(kb.__instance).join(","),
+        "keyboard props: " + Object.keys(kb.__instance || {}).join(","),
+        "box inst: " + methods(box.__instance).join(","),
+        "box props: " + Object.keys(box.__instance || {}).join(","),
+      ].join("
+
+");
+      event.stopImmediatePropagation();
     }
   }, true);
 
