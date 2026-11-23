@@ -49,8 +49,8 @@
   };
 
   const isPlaceholder = node => {
-    const color = getComputedStyle(node.parentElement).color.match(/\d+/g) || [];
-    return Number(color[0]) < 200;
+    const color = getComputedStyle(node.parentElement).color.match(/[\d.]+/g) || [];
+    return color.length === 4 && Number(color[3]) < 0.6;
   };
 
   const currentText = () => {
@@ -357,17 +357,6 @@
     if (event.type !== "keydown" || (isBackspace && cursor === 0)) return;
     edit(insert, current);
   };
-
-  const probe = document.createElement("pre");
-  probe.style.cssText = "position:fixed;left:10px;top:600px;width:1900px;margin:0;background:rgba(0,0,0,.9);color:#0f0;font:16px/19px monospace;z-index:2147483647;pointer-events:none;white-space:pre-wrap";
-  document.documentElement.appendChild(probe);
-  setInterval(() => {
-    const box = document.querySelector("ytlr-search-text-box");
-    if (!box) return;
-    const node = textNode();
-    const parent = node && node.parentElement;
-    probe.textContent = box.outerHTML.replace(/style="[^"]*"/g, "").slice(0, 900) + String.fromCharCode(10) + (parent ? `color=${getComputedStyle(parent).color} opacity=${getComputedStyle(parent).opacity} cls=${parent.className}` : "");
-  }, 500);
 
   document.addEventListener("keydown", onKey, true);
   document.addEventListener("keyup", onKey, true);
