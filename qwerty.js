@@ -350,6 +350,17 @@
     edit(insert, current);
   };
 
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;right:20px;bottom:20px;background:#06c;color:#fff;font:26px sans-serif;padding:8px 14px;z-index:2147483647";
+  document.documentElement.appendChild(probe);
+  const trail = [];
+  document.addEventListener("keydown", e => { trail.push(e.key.replace("Arrow", "")); if (trail.length > 6) trail.shift(); }, true);
+  setInterval(() => {
+    const active = document.activeElement;
+    const zylon = document.querySelector(".zylon-focus");
+    probe.textContent = `dom=${active && (labelOf(active) || active.tagName)} zylon=${zylon && (zylon.getAttribute("aria-label") || zylon.tagName)} keys=${trail.join(",")}`;
+  }, 150);
+
   document.addEventListener("keydown", onKey, true);
   document.addEventListener("keyup", onKey, true);
 
