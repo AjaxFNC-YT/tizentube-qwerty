@@ -203,29 +203,25 @@
     return container ? keyOf(container) : null;
   };
 
-  const press = async locate => {
+  const press = async (locate, changesText = true) => {
     refresh();
     const key = locate();
-    if (!key || !key.__instance || typeof key.__instance.onSelect !== "function") {
-      log(`press: no instance for ${key && labelOf(key)}`);
-      return false;
-    }
+    if (!key || !key.__instance || typeof key.__instance.onSelect !== "function") return false;
     const before = currentText();
     try {
       key.__instance.onSelect({ type: "click", target: key, currentTarget: key, stopPropagation() {}, preventDefault() {} });
     } catch (e) {
-      log(`onSelect error ${e.message}`);
       return false;
     }
-    await wait(60);
+    for (let i = 0; i < 30 && changesText && currentText() === before; i++) await wait(20);
+    await wait(changesText ? 30 : 250);
     log(`select ${labelOf(key)}: "${before}" -> "${currentText()}"`);
     return true;
   };
 
   const switchLayout = async () => {
     const toggle = LAYOUT_KEYS.find(name => state.byLabel.has(name));
-    if (!toggle || !(await press(() => findLabel(toggle)))) return false;
-    await wait(250);
+    if (!toggle || !(await press(() => findLabel(toggle), false))) return false;
     refresh();
     return true;
   };
@@ -238,28 +234,32 @@
 
   const typable = text => [...text].every(ch => /[a-z0-9 &#()@!?:.\-_"\/$%+\[\]']/.test(ch));
 
-  const backspaces = async count => {
-    for (let i = 0; i < count; i++) if (!(await press(() => findLabel("Backspace")))) return false;
-    return true;
+  const rewrite = async target => {
+    for (let step = 0; step < target.length * 3 + 40; step++) {
+      const text = currentText();
+      if (text === target) return true;
+      const ok = target.startsWith(text) ? await typeChar(target[text.length]) : await press(() => findLabel("Backspace"));
+      if (!ok) return false;
+    }
+    return false;
   };
 
   const edit = async (insert, origin) => {
     const text = currentText();
     const tail = text.slice(cursor);
-    if (!typable(tail + (insert || ""))) {
+    const head = insert === null ? text.slice(0, cursor - 1) : text.slice(0, cursor) + insert;
+    if (!typable(head + tail)) {
       cursor = text.length;
       return false;
     }
-    log(`edit insert=${JSON.stringify(insert)} cursor=${cursor} text="${text}" tail="${tail}"`);
+    log(`edit "${text}" -> "${head + tail}"`);
     const label = labelOf(origin);
     const wasLetters = !!state.items;
     busy = true;
     try {
-      await backspaces(tail.length + (insert === null ? 1 : 0));
-      if (insert !== null) await typeChar(insert);
-      for (const ch of tail) await typeChar(ch);
+      const done = await rewrite(head + tail);
       if (!!state.items !== wasLetters) await switchLayout();
-      cursor = Math.max(0, cursor + (insert === null ? -1 : 1));
+      cursor = done ? head.length : currentText().length;
       lastText = currentText();
     } finally {
       busy = false;
