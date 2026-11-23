@@ -258,6 +258,7 @@
       refresh();
       const back = [...state.byLabel.values()].map(keyOf).concat(state.bottom).find(key => key && labelOf(key) === label);
       (back || origin).focus();
+      syncHighlight();
       await wait(50);
       busy = false;
     }
@@ -294,6 +295,14 @@
     drawCaret();
   };
 
+  const syncHighlight = () => {
+    if (!state) return;
+    const active = document.activeElement;
+    const onArrow = active === arrows.left || active === arrows.right;
+    if (!onArrow && !(active && active.tagName === "YT-KEYBOARD-KEY" && state.keyboard.contains(active))) return;
+    state.keyboard.querySelectorAll("yt-keyboard-key").forEach(key => key.classList.toggle("zylon-focus", key === active));
+  };
+
   const swallow = event => {
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -320,6 +329,7 @@
       const next = neighbour(current, event.key);
       if (next) {
         next.el.focus();
+        syncHighlight();
         swallow(event);
       } else if (event.key === "ArrowRight") {
         swallow(event);
@@ -350,17 +360,6 @@
     edit(insert, current);
   };
 
-  const probe = document.createElement("div");
-  probe.style.cssText = "position:fixed;right:20px;bottom:20px;background:#06c;color:#fff;font:26px sans-serif;padding:8px 14px;z-index:2147483647";
-  document.documentElement.appendChild(probe);
-  const trail = [];
-  document.addEventListener("keydown", e => { trail.push(e.key.replace("Arrow", "")); if (trail.length > 6) trail.shift(); }, true);
-  setInterval(() => {
-    const active = document.activeElement;
-    const zylon = document.querySelector(".zylon-focus");
-    probe.textContent = `dom=${active && (labelOf(active) || active.tagName)} zylon=${zylon && (zylon.getAttribute("aria-label") || zylon.tagName)} keys=${trail.join(",")}`;
-  }, 150);
-
   document.addEventListener("keydown", onKey, true);
   document.addEventListener("keyup", onKey, true);
 
@@ -373,6 +372,7 @@
     }
     if (busy) return;
     arrange(keyboard);
+    syncHighlight();
     const text = currentText();
     if (text !== lastText) {
       if (cursor >= lastText.length || cursor > text.length) cursor = text.length;
