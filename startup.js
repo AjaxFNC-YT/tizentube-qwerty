@@ -1,6 +1,6 @@
 (() => {
   const upstream = "https://cdn.jsdelivr.net/npm/@foxreis/tizentube/dist/userScript.js";
-  const addon = "https://cdn.jsdelivr.net/gh/AjaxFNC-YT/tizentube-qwerty/qwerty.js";
+  const addon = "https://cdn.jsdelivr.net/gh/AjaxFNC-YT/tizentube-qwerty@main/qwerty.js";
 
   let version = String(Date.now());
   try {
