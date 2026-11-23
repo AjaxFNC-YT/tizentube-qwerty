@@ -11,8 +11,6 @@
   const LETTERS = [..."abcdefghijklmnopqrstuvwxyz"];
   const LAYOUT_KEYS = ["Numbers and symbols", "Letters"];
   const PASS_THROUGH = ["Numbers and symbols", "Letters", "Change language"];
-  const REWIND = [227, 412];
-  const FORWARD = [228, 417];
 
   let state = null;
   let cursor = 0;
@@ -309,12 +307,6 @@
 
     if (busy) {
       if (inKeyboard) swallow(event);
-      return;
-    }
-
-    if (REWIND.includes(event.keyCode) || FORWARD.includes(event.keyCode)) {
-      if (event.type === "keydown") moveCursor(REWIND.includes(event.keyCode) ? -1 : 1);
-      swallow(event);
       return;
     }
 
