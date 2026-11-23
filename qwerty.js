@@ -204,22 +204,22 @@
   };
 
   const press = async locate => {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      refresh();
-      const key = locate();
-      if (!key) return false;
-      key.focus();
-      for (let i = 0; i < 20 && !key.classList.contains("zylon-focus"); i++) await wait(15);
-      if (!key.isConnected || !key.classList.contains("zylon-focus")) continue;
-      await wait(20);
-      fakeKey(key, "keydown", 13, "Enter");
-      fakeKey(key, "keyup", 13, "Enter");
-      await wait(80);
-      log(`press ${labelOf(key)} -> "${currentText()}"`);
-      return true;
+    refresh();
+    const key = locate();
+    if (!key || !key.__instance || typeof key.__instance.onSelect !== "function") {
+      log(`press: no instance for ${key && labelOf(key)}`);
+      return false;
     }
-    log("press failed");
-    return false;
+    const before = currentText();
+    try {
+      key.__instance.onSelect();
+    } catch (e) {
+      log(`onSelect error ${e.message}`);
+      return false;
+    }
+    await wait(60);
+    log(`select ${labelOf(key)}: "${before}" -> "${currentText()}"`);
+    return true;
   };
 
   const switchLayout = async () => {
