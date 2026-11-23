@@ -295,12 +295,26 @@
     drawCaret();
   };
 
+  const paint = (key, styles) => {
+    Object.entries(styles).forEach(([name, value]) => {
+      if (key.style[name] !== value) key.style[name] = value;
+    });
+  };
+
   const syncHighlight = () => {
     if (!state) return;
     const active = document.activeElement;
     const onArrow = active === arrows.left || active === arrows.right;
-    if (!onArrow && !(active && active.tagName === "YT-KEYBOARD-KEY" && state.keyboard.contains(active))) return;
-    state.keyboard.querySelectorAll("yt-keyboard-key").forEach(key => key.classList.toggle("zylon-focus", key === active));
+    const onKey = !!active && active.tagName === "YT-KEYBOARD-KEY" && state.keyboard.contains(active);
+    state.keyboard.querySelectorAll("yt-keyboard-key").forEach(key => {
+      if ((onArrow || onKey) && key === active) {
+        paint(key, { background: "#f1f1f1", color: "#0f0f0f", borderRadius: "8px" });
+      } else if ((onArrow || onKey) && key.classList.contains("zylon-focus")) {
+        paint(key, { background: "transparent", color: "#aaa", borderRadius: "" });
+      } else {
+        paint(key, { background: "", color: "", borderRadius: "" });
+      }
+    });
   };
 
   const swallow = event => {
