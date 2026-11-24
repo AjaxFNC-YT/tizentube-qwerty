@@ -444,13 +444,21 @@
   setInterval(() => {
     const kb = document.querySelector("ytlr-search-keyboard");
     if (!kb) return;
+    const keys = [...kb.querySelectorAll("yt-keyboard-key")];
+    const pick = label => keys.find(k => k.getAttribute("aria-label") === label || k.textContent.trim() === label);
+    const src = fn => (typeof fn === "function" ? fn.toString().slice(0, 260) : String(fn));
+    const kp = kb.__instance.props;
+    const a = pick("a").__instance.props;
+    const bs = pick("Backspace").__instance.props;
     probePanel.textContent = [
-      describeProps("keyboard", kb),
-      describeProps("key", kb.querySelector("yt-keyboard-key")),
-      describeProps("textbox", document.querySelector("ytlr-search-text-box")),
-      describeProps("bar", document.querySelector("ytlr-search-bar")),
-      describeProps("page", document.querySelector("ytlr-classic-search-page")),
-      describeProps("container", document.querySelector("ytlr-search-container")),
+      "a.jf: " + JSON.stringify(a.jf).slice(0, 300),
+      "bs.jf: " + JSON.stringify(bs.jf).slice(0, 300),
+      "key.Nc: " + src(a.Nc),
+      "kb.searchQuery: " + JSON.stringify(kp.searchQuery).slice(0, 200),
+      "kb.vd: " + src(kp.vd),
+      "kb.GW: " + src(kp.GW),
+      "kb.XX: " + src(kp.XX),
+      "key onSelect: " + src(pick("a").__instance.onSelect),
     ].join(String.fromCharCode(10, 10));
   }, 1000);
 
