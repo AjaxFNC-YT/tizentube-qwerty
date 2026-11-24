@@ -10,28 +10,37 @@
   const NAMES = { "'": "Single Quote", "-": "Dash" };
   const LETTERS = [..."abcdefghijklmnopqrstuvwxyz"];
   const LAYOUT_KEYS = ["Numbers and symbols", "Letters"];
-  const PASS_THROUGH = ["Numbers and symbols", "Letters", "Change language"];
+  const ARROW_CODES = { ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40 };
+  const EXIT_ANCHORS = { ArrowLeft: ["a", "h", "o", "v"], ArrowUp: ["d"], ArrowDown: ["SPACE"] };
 
   let state = null;
+  let intended = null;
   let cursor = 0;
   let lastText = "";
-  let busy = false;
+  let queue = Promise.resolve();
+  let pending = 0;
   let caret = null;
   const arrows = {};
 
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const enqueue = task => {
+    pending++;
+    queue = queue.then(task).catch(() => {}).then(() => pending--);
+  };
 
   const keyOf = el => (el.tagName === "YT-KEYBOARD-KEY" ? el : el.querySelector("yt-keyboard-key"));
   const labelOf = el => {
+    if (!el) return null;
+    if (el === arrows.left || el === arrows.right) return el.getAttribute("aria-label");
     const key = keyOf(el);
     return key ? key.getAttribute("aria-label") || key.textContent.trim().toUpperCase() : null;
   };
   const charOf = key => {
-    const label = labelOf(key);
-    if (label === "SPACE") return " ";
+    if (labelOf(key) === "SPACE") return " ";
     const text = key.textContent.trim();
     return text.length === 1 ? text.toLowerCase() : null;
   };
+  const isArrow = el => !!el && (el === arrows.left || el === arrows.right);
 
   const translate = (el, dx, dy) => {
     const value = dx || dy ? `translate(${dx}px, ${dy}px)` : "";
@@ -57,41 +66,29 @@
     return node.textContent.replace(/ /g, " ");
   };
 
-  const makeArrow = (name, points) => {
+  const makeArrow = (label, points) => {
     const button = document.createElement("div");
-    button.tabIndex = -1;
-    button.setAttribute("role", "button");
-    button.setAttribute("aria-label", name === "left" ? "Move cursor left" : "Move cursor right");
-    button.style.cssText = "position:absolute;width:54px;height:54px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#aaa;outline:none";
+    button.setAttribute("aria-label", label);
+    button.style.cssText = "position:absolute;width:54px;height:54px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#aaa";
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     Object.entries({ width: 28, height: 28, viewBox: "0 0 24 24" }).forEach(([k, v]) => svg.setAttribute(k, v));
     Object.entries({ d: points, fill: "none", stroke: "currentColor", "stroke-width": 2.5, "stroke-linecap": "round", "stroke-linejoin": "round" }).forEach(([k, v]) => path.setAttribute(k, v));
     svg.appendChild(path);
     button.appendChild(svg);
-    button.addEventListener("focus", () => {
-      button.style.background = "#f1f1f1";
-      button.style.color = "#0f0f0f";
-    });
-    button.addEventListener("blur", () => {
-      button.style.background = "transparent";
-      button.style.color = "#aaa";
-    });
     return button;
   };
 
-  const ensureArrows = keyboard => {
+  const showArrows = (keyboard, visible) => {
     if (!arrows.left) {
-      arrows.left = makeArrow("left", "M15 5 L8 12 L15 19");
-      arrows.right = makeArrow("right", "M9 5 L16 12 L9 19");
+      arrows.left = makeArrow("Cursor left", "M15 5 L8 12 L15 19");
+      arrows.right = makeArrow("Cursor right", "M9 5 L16 12 L9 19");
     }
     [arrows.left, arrows.right].forEach(button => {
-      if (button.parentElement !== keyboard) keyboard.appendChild(button);
-      button.style.display = "flex";
+      if (visible && button.parentElement !== keyboard) keyboard.appendChild(button);
+      button.style.display = visible ? "flex" : "none";
     });
   };
-
-  const hideArrows = () => [arrows.left, arrows.right].forEach(button => button && (button.style.display = "none"));
 
   const arrange = keyboard => {
     const grid = keyboard.querySelector("yt-keyboard-key-grid");
@@ -101,15 +98,17 @@
     const containers = [...grid.querySelectorAll("yt-keyboard-key-container")];
     const byLabel = new Map(containers.map(c => [labelOf(c), c]));
     const bottom = list ? [...list.querySelectorAll("yt-keyboard-key")] : [];
+    bottom.forEach(key => byLabel.set(labelOf(key), key.parentElement));
     const originX = Math.min(...containers.map(c => c.offsetLeft));
     const originY = Math.min(...containers.map(c => c.offsetTop));
+    const letters = LETTERS.every(letter => byLabel.has(letter));
     const items = [];
 
-    if (!LETTERS.every(letter => byLabel.has(letter))) {
+    if (!letters) {
       containers.forEach(c => translate(c, 0, 0));
       if (list) translate(list, 0, 0);
-      hideArrows();
-      state = { byLabel, bottom, items: null, keyboard };
+      showArrows(keyboard, false);
+      state = { keyboard, byLabel, bottom, items: null };
       return;
     }
 
@@ -122,7 +121,7 @@
     ROWS.forEach(({ keys, offset }, row) => [...keys].forEach((ch, i) => place(byLabel.get(NAMES[ch] || ch), (offset + i) * UNIT, row)));
     SIDE.forEach((name, row) => place(byLabel.get(name), SIDE_OFFSET * UNIT, row));
 
-    ensureArrows(keyboard);
+    showArrows(keyboard, true);
     const bottomY = originY + ROWS.length * UNIT;
     [arrows.left, arrows.right].forEach((button, i) => {
       button.style.left = `${originX + i * UNIT + 6}px`;
@@ -141,34 +140,33 @@
       });
     }
 
-    state = { byLabel, bottom, items, keyboard };
+    state = { keyboard, byLabel, bottom, items };
   };
 
-  const nearest = (candidates, x) => candidates.sort((a, b) => Math.abs(a.x - x) - Math.abs(b.x - x))[0] || null;
-
-  const neighbour = (current, direction) => {
-    const from = state.items.find(item => item.el === current);
-    if (!from) return null;
-    if (direction === "ArrowLeft" || direction === "ArrowRight") {
-      const sign = direction === "ArrowRight" ? 1 : -1;
-      return nearest(state.items.filter(item => item.row === from.row && (item.x - from.x) * sign > 0), from.x);
-    }
-    const row = from.row + (direction === "ArrowDown" ? 1 : -1);
-    return nearest(state.items.filter(item => item.row === row), from.x);
+  const refresh = () => {
+    const keyboard = document.querySelector("ytlr-search-keyboard");
+    if (keyboard) arrange(keyboard);
+    else state = null;
   };
 
-  const handOff = (current, direction) => {
-    const from = state.items.find(item => item.el === current);
-    if (!from) return;
-    if (direction === "ArrowDown") {
-      if (state.bottom[0]) state.bottom[0].focus();
-      return;
-    }
-    const anchors = { ArrowLeft: ["a", "h", "o", "v"], ArrowUp: ["d"] };
-    const names = anchors[direction];
-    if (!names) return;
-    const container = state.byLabel.get(names[Math.min(from.row, names.length - 1)]);
-    if (container) keyOf(container).focus();
+  const findLabel = label => {
+    const container = state && state.byLabel.get(label);
+    return container ? keyOf(container) : null;
+  };
+
+  const resolve = el => {
+    if (!el || isArrow(el) || el.isConnected) return el;
+    return findLabel(labelOf(el));
+  };
+
+  const ytFocused = () => (state ? state.keyboard.querySelector("yt-keyboard-key.zylon-focus") : null);
+
+  const home = key => {
+    const container = key.parentElement;
+    const list = container.closest("yt-keyboard-key-list");
+    const x = container.offsetLeft + container.offsetWidth / 2 + (list ? list.offsetLeft : 0);
+    const y = container.offsetTop + container.offsetHeight / 2 + (list ? list.offsetTop : 0);
+    return { x, y };
   };
 
   const fakeKey = (target, type, keyCode, key) => {
@@ -178,13 +176,46 @@
     target.dispatchEvent(event);
   };
 
-  const refresh = () => {
-    const keyboard = document.querySelector("ytlr-search-keyboard");
-    if (keyboard) arrange(keyboard);
+  const sendArrow = async direction => {
+    const target = document.activeElement || document.body;
+    const before = ytFocused();
+    fakeKey(target, "keydown", ARROW_CODES[direction], direction);
+    fakeKey(target, "keyup", ARROW_CODES[direction], direction);
+    for (let i = 0; i < 15 && ytFocused() === before; i++) await wait(15);
+    return ytFocused() !== before;
   };
 
-  const findKey = ch => {
-    if (ch === " ") return state.bottom.find(key => labelOf(key) === "SPACE");
+  const moveTo = async target => {
+    for (let step = 0; step < 24; step++) {
+      refresh();
+      const goal = resolve(target);
+      const current = ytFocused();
+      if (!goal || !current || current === goal) return current === goal;
+      const from = home(current);
+      const to = home(goal);
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const vertical = Math.abs(dy) > 20 ? (dy > 0 ? "ArrowDown" : "ArrowUp") : null;
+      const horizontal = Math.abs(dx) > 20 ? (dx > 0 ? "ArrowRight" : "ArrowLeft") : null;
+      if (await sendArrow(vertical || horizontal)) continue;
+      if (!vertical || !horizontal || !(await sendArrow(horizontal))) return false;
+    }
+    return false;
+  };
+
+  const select = async key => {
+    refresh();
+    const live = resolve(key);
+    if (!live || !live.__instance || typeof live.__instance.onSelect !== "function") return false;
+    const before = currentText();
+    live.__instance.onSelect({ type: "click", target: live, currentTarget: live, stopPropagation() {}, preventDefault() {} });
+    for (let i = 0; i < 30 && currentText() === before; i++) await wait(15);
+    await wait(30);
+    return true;
+  };
+
+  const findChar = ch => {
+    if (ch === " ") return findLabel("SPACE");
     for (const container of state.byLabel.values()) {
       const key = keyOf(container);
       if (key && charOf(key) === ch) return key;
@@ -192,37 +223,20 @@
     return null;
   };
 
-  const findLabel = label => {
-    const container = state.byLabel.get(label);
-    return container ? keyOf(container) : null;
-  };
-
-  const press = async (locate, changesText = true) => {
-    refresh();
-    const key = locate();
-    if (!key || !key.__instance || typeof key.__instance.onSelect !== "function") return false;
-    const before = currentText();
-    try {
-      key.__instance.onSelect({ type: "click", target: key, currentTarget: key, stopPropagation() {}, preventDefault() {} });
-    } catch (e) {
-      return false;
-    }
-    for (let i = 0; i < 30 && changesText && currentText() === before; i++) await wait(20);
-    await wait(changesText ? 30 : 250);
-    return true;
-  };
-
   const switchLayout = async () => {
     const toggle = LAYOUT_KEYS.find(name => state.byLabel.has(name));
-    if (!toggle || !(await press(() => findLabel(toggle), false))) return false;
+    if (!toggle) return false;
+    await select(findLabel(toggle));
+    await wait(250);
     refresh();
     return true;
   };
 
   const typeChar = async ch => {
     refresh();
-    if (!findKey(ch) && !(await switchLayout())) return false;
-    return press(() => findKey(ch));
+    if (!findChar(ch) && !(await switchLayout())) return false;
+    const key = findChar(ch);
+    return key ? select(key) : false;
   };
 
   const typable = text => [...text].every(ch => /[a-z0-9 &#()@!?:.\-_"\/$%+\[\]']/.test(ch));
@@ -231,7 +245,7 @@
     for (let step = 0; step < target.length * 3 + 40; step++) {
       const text = currentText();
       if (text === target) return true;
-      const ok = target.startsWith(text) ? await typeChar(target[text.length]) : await press(() => findLabel("Backspace"));
+      const ok = target.startsWith(text) ? await typeChar(target[text.length]) : await select(findLabel("Backspace"));
       if (!ok) return false;
     }
     return false;
@@ -239,35 +253,65 @@
 
   const edit = async (insert, origin) => {
     const text = currentText();
+    const head = insert === null ? text.slice(0, Math.max(0, cursor - 1)) : text.slice(0, cursor) + insert;
     const tail = text.slice(cursor);
-    const head = insert === null ? text.slice(0, cursor - 1) : text.slice(0, cursor) + insert;
     if (!typable(head + tail)) {
       cursor = text.length;
-      return false;
+      return;
     }
-    const label = labelOf(origin);
     const wasLetters = !!state.items;
-    busy = true;
-    try {
-      const done = await rewrite(head + tail);
-      if (!!state.items !== wasLetters) await switchLayout();
-      cursor = done ? head.length : currentText().length;
-      lastText = currentText();
-    } finally {
-      const restore = () => {
-        refresh();
-        const back = [...state.byLabel.values()].map(keyOf).concat(state.bottom).find(key => key && labelOf(key) === label);
-        const target = back || origin;
-        if (document.activeElement !== target) target.focus();
-        syncHighlight();
-      };
-      for (const delay of [150, 200, 300]) {
-        await wait(delay);
-        restore();
-      }
-      busy = false;
+    const done = await rewrite(head + tail);
+    refresh();
+    if (!!state.items !== wasLetters) await switchLayout();
+    cursor = done ? head.length : currentText().length;
+    lastText = currentText();
+    await moveTo(origin);
+  };
+
+  const neighbour = (from, direction) => {
+    const item = state.items.find(entry => entry.el === from);
+    if (!item) return null;
+    const nearest = list => list.sort((a, b) => Math.abs(a.x - item.x) - Math.abs(b.x - item.x))[0] || null;
+    if (direction === "ArrowLeft" || direction === "ArrowRight") {
+      const sign = direction === "ArrowRight" ? 1 : -1;
+      return nearest(state.items.filter(entry => entry.row === item.row && (entry.x - item.x) * sign > 0));
     }
-    return true;
+    const row = item.row + (direction === "ArrowDown" ? 1 : -1);
+    return nearest(state.items.filter(entry => entry.row === row));
+  };
+
+  const exitAnchor = (from, direction) => {
+    const names = EXIT_ANCHORS[direction];
+    if (!names) return null;
+    const item = state.items.find(entry => entry.el === from);
+    const row = item ? Math.min(item.row, names.length - 1) : 0;
+    return findLabel(names[row]);
+  };
+
+  const parkFor = el => (isArrow(el) ? findLabel("SPACE") : el);
+
+  const paint = (el, styles) => {
+    Object.entries(styles).forEach(([name, value]) => {
+      if (el.style.getPropertyValue(name) === value) return;
+      if (value) el.style.setProperty(name, value, "important");
+      else el.style.removeProperty(name);
+    });
+  };
+
+  const ON = { "background-color": "#f1f1f1", color: "#0f0f0f", "border-radius": "8px" };
+  const OFF = { "background-color": "transparent", color: "#aaa", "border-radius": "" };
+  const CLEAR = { "background-color": "", color: "", "border-radius": "" };
+
+  const syncHighlight = () => {
+    if (!state) return;
+    const target = state.items ? resolve(intended) : null;
+    state.keyboard.querySelectorAll("yt-keyboard-key").forEach(key => {
+      if (!target) paint(key, CLEAR);
+      else if (key === target) paint(key, ON);
+      else if (key.classList.contains("zylon-focus")) paint(key, OFF);
+      else paint(key, CLEAR);
+    });
+    [arrows.left, arrows.right].forEach(button => button && paint(button, button === target ? ON : OFF));
   };
 
   const drawCaret = () => {
@@ -300,99 +344,100 @@
     drawCaret();
   };
 
-  const paint = (key, styles) => {
-    Object.entries(styles).forEach(([name, value]) => {
-      if (key.style.getPropertyValue(name) === value) return;
-      if (value) key.style.setProperty(name, value, "important");
-      else key.style.removeProperty(name);
-    });
-  };
-
-  const syncHighlight = () => {
-    if (!state) return;
-    const active = document.activeElement;
-    const onArrow = active === arrows.left || active === arrows.right;
-    const onKey = !!active && active.tagName === "YT-KEYBOARD-KEY" && state.keyboard.contains(active);
-    state.keyboard.querySelectorAll("yt-keyboard-key").forEach(key => {
-      if ((onArrow || onKey) && key === active) {
-        paint(key, { "background-color": "#f1f1f1", color: "#0f0f0f", "border-radius": "8px" });
-      } else if ((onArrow || onKey) && key.classList.contains("zylon-focus")) {
-        paint(key, { "background-color": "transparent", color: "#aaa", "border-radius": "" });
-      } else {
-        paint(key, { "background-color": "", color: "", "border-radius": "" });
-      }
-    });
-  };
-
   const swallow = event => {
     event.preventDefault();
     event.stopImmediatePropagation();
   };
 
-  const onKey = event => {
-    if (!event.isTrusted || !state) return;
-    const current = document.activeElement;
-    const onArrow = !!current && (current === arrows.left || current === arrows.right);
-    const inKeyboard = onArrow || (!!current && state.keyboard.contains(current));
-
-    if (busy) {
-      if (inKeyboard) swallow(event);
+  const activate = async target => {
+    if (isArrow(target)) {
+      moveCursor(target === arrows.left ? -1 : 1);
       return;
     }
-
-    if (!inKeyboard) return;
-
-    if (event.key.startsWith("Arrow") && state.items) {
-      if (event.type !== "keydown") {
-        if (onArrow) swallow(event);
-        return;
-      }
-      const next = neighbour(current, event.key);
-      if (next) {
-        next.el.focus();
-        syncHighlight();
-        swallow(event);
-      } else if (event.key === "ArrowRight") {
-        swallow(event);
-      } else {
-        handOff(current, event.key);
-      }
-      return;
-    }
-
-    if (event.key !== "Enter" && event.keyCode !== 13) return;
-
-    if (onArrow) {
-      if (event.type === "keydown") moveCursor(current === arrows.left ? -1 : 1);
-      swallow(event);
-      return;
-    }
-
-    const label = labelOf(current);
+    const key = resolve(target);
+    if (!key) return;
+    const label = labelOf(key);
     const text = currentText();
-    if (cursor >= text.length || PASS_THROUGH.includes(label) || label === "SEARCH" || label === "CLEAR") return;
+    const editable = cursor < text.length && (label === "Backspace" || charOf(key) !== null);
+    if (editable) {
+      if (label === "Backspace" && cursor === 0) return;
+      await edit(label === "Backspace" ? null : charOf(key), key);
+      return;
+    }
+    await moveTo(key);
+    await select(key);
+    refresh();
+    if (state && state.items && !resolve(intended)) intended = ytFocused();
+  };
 
-    const isBackspace = label === "Backspace";
-    const insert = isBackspace ? null : charOf(current);
-    if (!isBackspace && insert === null) return;
+  const onKey = event => {
+    if (!event.isTrusted) return;
+    refresh();
+    if (!state) return;
+
+    const focusInside = state.keyboard.contains(document.activeElement);
+    if (!focusInside && !pending) {
+      intended = null;
+      return;
+    }
+    if (!intended || !state.items) intended = ytFocused() || intended;
+    if (!intended) return;
+
+    const isEnter = event.key === "Enter" || event.keyCode === 13;
+    const isArrowKey = event.key in ARROW_CODES;
+    if (!isEnter && !isArrowKey) return;
+
+    if (!state.items) {
+      if (isEnter && cursor < currentText().length) {
+        swallow(event);
+        if (event.type === "keydown") enqueue(() => activate(ytFocused()));
+      }
+      return;
+    }
 
     swallow(event);
-    if (event.type !== "keydown" || (isBackspace && cursor === 0)) return;
-    edit(insert, current);
+    if (event.type !== "keydown") return;
+
+    if (isEnter) {
+      const target = intended;
+      enqueue(() => activate(target));
+      return;
+    }
+
+    const next = neighbour(resolve(intended), event.key);
+    if (next) {
+      intended = next.el;
+      syncHighlight();
+      const park = parkFor(next.el);
+      enqueue(() => moveTo(park));
+      return;
+    }
+
+    const anchor = exitAnchor(resolve(intended), event.key);
+    if (!anchor) return;
+    const direction = event.key;
+    intended = null;
+    syncHighlight();
+    enqueue(async () => {
+      await moveTo(anchor);
+      await sendArrow(direction);
+    });
   };
 
   document.addEventListener("keydown", onKey, true);
   document.addEventListener("keyup", onKey, true);
 
   setInterval(() => {
-    const keyboard = document.querySelector("ytlr-search-keyboard");
-    if (!keyboard) {
-      state = null;
+    refresh();
+    if (!state) {
+      intended = null;
       if (caret) caret.style.display = "none";
       return;
     }
-    if (busy) return;
-    arrange(keyboard);
+    if (!pending) {
+      if (!state.keyboard.contains(document.activeElement)) intended = null;
+      else if (!state.items || !resolve(intended)) intended = ytFocused();
+    }
     syncHighlight();
     const text = currentText();
     if (text !== lastText) {
@@ -400,5 +445,5 @@
       lastText = text;
     }
     drawCaret();
-  }, 200);
+  }, 150);
 })();
