@@ -425,6 +425,35 @@
     });
   };
 
+  const probePanel = document.createElement("pre");
+  probePanel.style.cssText = "position:fixed;left:0;top:480px;width:1920px;height:600px;margin:0;padding:6px;background:rgba(0,0,0,.93);color:#0f0;font:14px/16px monospace;z-index:2147483647;pointer-events:none;white-space:pre-wrap;overflow:hidden";
+  document.documentElement.appendChild(probePanel);
+  const describeProps = (name, el) => {
+    if (!el || !el.__instance) return `${name}: none`;
+    const props = el.__instance.props || {};
+    const entries = Object.keys(props).map(k => {
+      const v = props[k];
+      const t = typeof v;
+      if (t === "function") return `${k}()`;
+      if (t === "string") return `${k}="${v.slice(0, 30)}"`;
+      if (v && t === "object") return `${k}{${Object.keys(v).slice(0, 8).join(",")}}`;
+      return `${k}=${v}`;
+    });
+    return `${name}: ${entries.join("  ")}`;
+  };
+  setInterval(() => {
+    const kb = document.querySelector("ytlr-search-keyboard");
+    if (!kb) return;
+    probePanel.textContent = [
+      describeProps("keyboard", kb),
+      describeProps("key", kb.querySelector("yt-keyboard-key")),
+      describeProps("textbox", document.querySelector("ytlr-search-text-box")),
+      describeProps("bar", document.querySelector("ytlr-search-bar")),
+      describeProps("page", document.querySelector("ytlr-classic-search-page")),
+      describeProps("container", document.querySelector("ytlr-search-container")),
+    ].join(String.fromCharCode(10, 10));
+  }, 1000);
+
   ["keydown", "keyup", "keypress"].forEach(type => window.addEventListener(type, onKey, true));
 
   setInterval(() => {
