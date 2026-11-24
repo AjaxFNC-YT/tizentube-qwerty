@@ -300,6 +300,7 @@
 
   const ON = { "background-color": "#f1f1f1", color: "#0f0f0f", "border-radius": "8px" };
   const OFF = { "background-color": "transparent", color: "#aaa", "border-radius": "" };
+  const OFF_BOTTOM = { "background-color": "rgba(255, 255, 255, 0.1)", color: "#aaa", "border-radius": "" };
   const CLEAR = { "background-color": "", color: "", "border-radius": "" };
 
   const syncHighlight = () => {
@@ -308,7 +309,7 @@
     state.keyboard.querySelectorAll("yt-keyboard-key").forEach(key => {
       if (!target) paint(key, CLEAR);
       else if (key === target) paint(key, ON);
-      else if (key.classList.contains("zylon-focus")) paint(key, OFF);
+      else if (key.classList.contains("zylon-focus")) paint(key, state.bottom.includes(key) ? OFF_BOTTOM : OFF);
       else paint(key, CLEAR);
     });
     [arrows.left, arrows.right].forEach(button => button && paint(button, button === target ? ON : OFF));
