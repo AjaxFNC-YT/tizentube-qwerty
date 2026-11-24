@@ -239,9 +239,9 @@
     return key ? select(key) : false;
   };
 
-  const typable = text => [...text].every(ch => /[a-z0-9 &#()@!?:.\-_"\/$%+\[\]']/.test(ch));
+  const typable = text => [...text].every(ch => /[a-z0-9 &#()@!?:.\-_"\/$%+\[\]']/i.test(ch));
 
-  const rewrite = async target => {
+  const replay = async target => {
     for (let step = 0; step < target.length * 3 + 40; step++) {
       const text = currentText();
       if (text === target) return true;
@@ -249,6 +249,31 @@
       if (!ok) return false;
     }
     return false;
+  };
+
+  const dispatchKey = data => {
+    const key = state.keyboard.querySelector("yt-keyboard-key");
+    const send = key && key.__instance && key.__instance.props && key.__instance.props.Nc;
+    if (typeof send !== "function") return false;
+    send.call(key.__instance.props, data);
+    return true;
+  };
+
+  const settle = async before => {
+    for (let i = 0; i < 30 && currentText() === before; i++) await wait(15);
+    await wait(40);
+  };
+
+  const rewrite = async target => {
+    refresh();
+    const clearKey = findLabel("CLEAR");
+    const clearData = clearKey && clearKey.__instance && clearKey.__instance.props.jf;
+    if (clearData && dispatchKey(clearData)) {
+      await settle(currentText());
+      if (target && dispatchKey({ label: target, action: "TEXT", ariaLabel: target })) await settle("");
+      if (currentText() === target) return true;
+    }
+    return replay(target);
   };
 
   const edit = async (insert, origin) => {
@@ -424,43 +449,6 @@
       await sendArrow(direction);
     });
   };
-
-  const probePanel = document.createElement("pre");
-  probePanel.style.cssText = "position:fixed;left:0;top:480px;width:1920px;height:600px;margin:0;padding:6px;background:rgba(0,0,0,.93);color:#0f0;font:14px/16px monospace;z-index:2147483647;pointer-events:none;white-space:pre-wrap;overflow:hidden";
-  document.documentElement.appendChild(probePanel);
-  const describeProps = (name, el) => {
-    if (!el || !el.__instance) return `${name}: none`;
-    const props = el.__instance.props || {};
-    const entries = Object.keys(props).map(k => {
-      const v = props[k];
-      const t = typeof v;
-      if (t === "function") return `${k}()`;
-      if (t === "string") return `${k}="${v.slice(0, 30)}"`;
-      if (v && t === "object") return `${k}{${Object.keys(v).slice(0, 8).join(",")}}`;
-      return `${k}=${v}`;
-    });
-    return `${name}: ${entries.join("  ")}`;
-  };
-  setInterval(() => {
-    const kb = document.querySelector("ytlr-search-keyboard");
-    if (!kb) return;
-    const keys = [...kb.querySelectorAll("yt-keyboard-key")];
-    const pick = label => keys.find(k => k.getAttribute("aria-label") === label || k.textContent.trim() === label);
-    const src = fn => (typeof fn === "function" ? fn.toString().slice(0, 260) : String(fn));
-    const kp = kb.__instance.props;
-    const a = pick("a").__instance.props;
-    const bs = pick("Backspace").__instance.props;
-    probePanel.textContent = [
-      "a.jf: " + JSON.stringify(a.jf).slice(0, 300),
-      "bs.jf: " + JSON.stringify(bs.jf).slice(0, 300),
-      "key.Nc: " + src(a.Nc),
-      "kb.searchQuery: " + JSON.stringify(kp.searchQuery).slice(0, 200),
-      "kb.vd: " + src(kp.vd),
-      "kb.GW: " + src(kp.GW),
-      "kb.XX: " + src(kp.XX),
-      "key onSelect: " + src(pick("a").__instance.onSelect),
-    ].join(String.fromCharCode(10, 10));
-  }, 1000);
 
   ["keydown", "keyup", "keypress"].forEach(type => window.addEventListener(type, onKey, true));
 
