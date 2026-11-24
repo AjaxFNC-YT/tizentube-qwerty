@@ -426,6 +426,7 @@
 
   document.addEventListener("keydown", onKey, true);
   document.addEventListener("keyup", onKey, true);
+  document.addEventListener("keypress", onKey, true);
 
   setInterval(() => {
     refresh();
