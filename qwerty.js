@@ -424,9 +424,7 @@
     });
   };
 
-  document.addEventListener("keydown", onKey, true);
-  document.addEventListener("keyup", onKey, true);
-  document.addEventListener("keypress", onKey, true);
+  ["keydown", "keyup", "keypress"].forEach(type => window.addEventListener(type, onKey, true));
 
   setInterval(() => {
     refresh();
